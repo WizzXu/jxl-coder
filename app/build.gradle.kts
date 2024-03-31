@@ -78,4 +78,6 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     ksp("com.github.bumptech.glide:ksp:4.16.0")
     implementation("com.github.bumptech.glide:compose:1.0.0-alpha.5")
+
+    implementation("org.aomedia.avif.android:avif:1.0.1.262e11d")
 }

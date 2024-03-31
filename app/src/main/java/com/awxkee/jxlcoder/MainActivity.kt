@@ -41,10 +41,13 @@ import okio.buffer
 import okio.sink
 import okio.source
 import okio.use
+import org.aomedia.avif.android.AvifDecoder
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.channels.Channels
 import java.util.UUID
 import kotlin.system.measureTimeMillis
 
@@ -169,7 +172,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            simpleRoundTrip("screenshot_discord_5.png")
+//                            simpleRoundTrip("screenshot_discord_5.png")
 //                            simpleRoundTrip("screen_discord_3.png")
 //                            simpleRoundTrip("screen_discord.png")
 //                            simpleRoundTrip("screen_discord_2.png")
@@ -189,9 +192,43 @@ class MainActivity : ComponentActivity() {
 //                                drawables.add(BitmapDrawable(resources, decoded))
 //                            }
 
-//                            var assets = (this@MainActivity.assets.list("") ?: return@launch).toList()
-//                            for (asset in assets) {
-//                                try {
+                            var assets = (this@MainActivity.assets.list("") ?: return@launch).filter {
+                                 it.endsWith("jxl")
+                            }.toList()
+                            for (asset in assets) {
+                                try {
+                                    val buffer4 =
+                                        this@MainActivity.assets.open(asset).source().buffer().readByteArray()
+
+                                    val largeImageSize = JxlCoder.getSize(buffer4)
+                                    if (largeImageSize != null) {
+                                        val time = measureTimeMillis {
+                                            var srcImage = JxlCoder.decodeSampled(
+                                                buffer4,
+                                                largeImageSize.width ,
+                                                largeImageSize.height ,
+                                                preferredColorConfig = PreferredColorConfig.DEFAULT,
+                                                com.awxkee.jxlcoder.ScaleMode.FIT,
+                                                JxlResizeFilter.BICUBIC,
+                                                toneMapper = JxlToneMapper.LOGARITHMIC,
+                                            )
+                                            lifecycleScope.launch {
+                                                imagesArray.add(srcImage)
+                                            }
+                                        }
+                                        Log.e("JXLCoder", "Decoding done in ${time}ms")
+                                    }
+                                } catch (e: Exception) {
+                                    if (e !is FileNotFoundException) {
+                                        throw e
+                                    }
+                                }
+                            }
+                             assets = (this@MainActivity.assets.list("") ?: return@launch).filter {
+                                it.endsWith("avif")
+                            }.toList()
+                            for (asset in assets) {
+                                try {
 //                                    val buffer4 =
 //                                        this@MainActivity.assets.open(asset).source().buffer().readByteArray()
 //
@@ -200,8 +237,8 @@ class MainActivity : ComponentActivity() {
 //                                        val time = measureTimeMillis {
 //                                            var srcImage = JxlCoder.decodeSampled(
 //                                                buffer4,
-//                                                largeImageSize.width / 3 * 2,
-//                                                largeImageSize.height / 3 * 2,
+//                                                largeImageSize.width ,
+//                                                largeImageSize.height ,
 //                                                preferredColorConfig = PreferredColorConfig.DEFAULT,
 //                                                com.awxkee.jxlcoder.ScaleMode.FIT,
 //                                                JxlResizeFilter.BICUBIC,
@@ -211,14 +248,30 @@ class MainActivity : ComponentActivity() {
 //                                                imagesArray.add(srcImage)
 //                                            }
 //                                        }
-//                                        Log.d("JXLCoder", "Decoding done in ${time}ms")
+//                                        Log.e("JXLCoder", "Decoding done in ${time}ms")
 //                                    }
-//                                } catch (e: Exception) {
-//                                    if (e !is FileNotFoundException) {
-//                                        throw e
-//                                    }
-//                                }
-//                            }
+                                    val buffer5 =
+                                        this@MainActivity.assets.open(asset)
+                                    val buffer = ByteBuffer.allocateDirect(buffer5.available())
+                                    Channels.newChannel(buffer5).read(buffer)
+                                    buffer.flip()
+                                    val info = AvifDecoder.Info()
+                                    AvifDecoder.getInfo(buffer, buffer.remaining(), info)
+                                    val bitmap = Bitmap.createBitmap(info.width, info.height, Bitmap.Config.ARGB_8888)
+                                    val time = measureTimeMillis {
+                                        AvifDecoder.decode(buffer, buffer.remaining(), bitmap)
+                                    }
+                                    lifecycleScope.launch {
+                                                imagesArray.add(bitmap)
+                                    }
+                                    Log.e("AvifDecoder", "Decoding done in ${time}ms")
+
+                                } catch (e: Exception) {
+                                    if (e !is FileNotFoundException) {
+                                        throw e
+                                    }
+                                }
+                            }
                         }
                     })
                     // A surface container using the 'background' color from the theme
